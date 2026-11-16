@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>File-Search v1.00 | 使い方</title>
+<style>
+:root{--bg:#f0f5fb;--surface:#ffffff;--alt:#e6effb;--accent:#246bc4;--accent2:#1453a1;--text:#253a53;--muted:#61758e;--border:#bed0e5;--shadow:0 9px 30px rgba(37,58,83,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:"Yu Gothic UI","Meiryo","Noto Sans CJK JP","Hiragino Kaku Gothic ProN",sans-serif;font-size:15px;line-height:1.85}
+header{background:#fff;border-bottom:1px solid var(--border)}.head,.layout{max-width:1140px;margin:auto;padding:24px 22px}.head{padding-top:30px;padding-bottom:26px}.eyebrow{color:var(--accent);font-weight:700;font-size:12px;letter-spacing:.06em}h1{font-size:clamp(26px,4.5vw,36px);letter-spacing:-.02em;margin:3px 0 8px}h2{margin:0 0 16px;font-size:21px;border-left:4px solid var(--accent);padding-left:12px;line-height:1.55}h3{font-size:16px;margin:0 0 8px}.lead{margin:0;color:var(--muted);font-size:15px}.pill{display:inline-block;margin-top:13px;padding:3px 11px;border:1px solid var(--border);background:#f3f8ff;border-radius:99px;font-size:12px;color:var(--muted)}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 22px}nav a{text-decoration:none;color:var(--accent2);background:white;border:1px solid var(--border);border-radius:6px;font-size:13px;padding:7px 11px;font-weight:600}nav a:hover{background:#e8f1ff}
+section{padding:23px 27px;margin-bottom:18px;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:var(--shadow)}p{margin:10px 0}li{margin:6px 0}ol,ul{padding-left:26px}.shot{width:100%;height:auto;display:block;border:1px solid var(--border);border-radius:7px}.figure{margin:0}.figure figcaption{margin-top:8px;color:var(--muted);font-size:12px}
+.steps{counter-reset:step;list-style:none;padding:0;margin:0}.steps li{position:relative;padding-left:48px;margin:0 0 17px;min-height:32px}.steps li:before{counter-increment:step;content:counter(step);display:inline-flex;align-items:center;justify-content:center;position:absolute;top:0;left:0;width:30px;height:30px;border-radius:8px;background:var(--accent);color:white;font-weight:bold}
+.table-wrap{width:100%;overflow:auto}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}th{background:var(--alt);font-weight:700}tbody tr:nth-child(even){background:#f8fbff}
+pre{margin:12px 0;background:#172941;color:#f4f8ff;padding:15px;border-radius:8px;overflow:auto;font-family:Consolas,"Cascadia Code",monospace;font-size:13px;line-height:1.7}code{font-family:Consolas,"Cascadia Code",monospace;background:#edf3fa;padding:2px 5px;border-radius:4px;font-size:.93em}pre code{background:transparent;padding:0}.notice{padding:12px 14px;background:#f4f8ff;border-left:3px solid var(--accent);margin-top:14px;border-radius:4px}.warn{background:#fff9ec;border-left-color:#b88332}
+footer{max-width:1140px;margin:auto;padding:6px 22px 35px;color:var(--muted);font-size:12px}a{color:var(--accent)}.tag{font-size:12px;color:var(--muted);font-weight:600}@media(max-width:650px){.head,.layout{padding-left:13px;padding-right:13px}section{padding:17px 15px}table{font-size:12px}}
+</style>
+</head>
+<body>
+<header><div class="head"><div class="eyebrow">FILE-SEARCH / USER GUIDE</div><h1>File-Search v1.00</h1><p class="lead">2つのフォルダを横断検索。漢字を手掛かりに候補を見つけ、選択したファイルを安全にコピーします。</p><span class="pill">Windows向け · ローカルで閲覧可能 · 追加フォント不要</span></div></header>
+<main class="layout"><nav aria-label="目次"><a href="#overview">画面</a><a href="#start">起動と設定</a><a href="#search">検索</a><a href="#copy">コピー</a><a href="#demo">デモ</a><a href="#notes">FAQ</a></nav>
+<section id="overview"><h2>画面の概要</h2>
+<figure class="figure"><img class="shot" src="docs/画面見本_Windows実機.png" alt="File-SearchのWindows実行画面：検索フォルダ、検索欄、一覧、連番設定" loading="eager"><figcaption>画面見本（Windows実機）。検索フォルダ、コピー先、検索欄、結果一覧、連番設定をメイン画面に配置しています。</figcaption></figure>
+<p>File-Searchは、最大2つのフォルダにあるファイルを名前から検索し、選んだファイルを指定先へコピーするためのツールです。検索対象のフォルダをON/OFFできます。</p></section>
+<section id="start"><h2>起動と初期設定</h2><ol class="steps">
+<li>同じフォルダに <code>file-search.py</code>、<code>design_theme.py</code>、<code>design_theme.json</code> を配置します。Python 3.10以上を想定しています。</li>
+<li>Windowsのターミナルなどで次のコマンドを実行します。<pre><code>python file-search.py</code></pre></li>
+<li>「検索フォルダ 1」「検索フォルダ 2」を押して、検索したいフォルダをそれぞれ指定します。使用するフォルダのチェックをONにします。</li>
+<li>「コピー先フォルダ」を押して、コピー先を指定します。</li>
+</ol><div class="notice">フォルダ指定やON/OFFなどの変更は <code>file-search.cfg</code> に自動保存されます。既存設定がある場合は上書きせずバックアップしてから更新してください。</div></section>
+<section id="search"><h2>検索の方法</h2><ol class="steps">
+<li>「検索文字」欄に文字を入力します。氏名を通常どおり入力するほか、目的の漢字を含む語句を続けて入力できます。</li>
+<li><strong>Enter</strong> で検索すると、一致文字数が多いファイルが上に並びます。背景の淡い青は一致度に応じて変化します。</li>
+<li><strong>Tab</strong> で検索結果の先頭へ移動し、<strong>↑ / ↓</strong> でファイルを選びます。</li>
+<li>検索結果上で <strong>Tab</strong> を押すと検索欄へ戻ります。入力文字が選択され、次の検索を始められます。</li>
+</ol>
+<div class="table-wrap"><table><thead><tr><th>検索欄へ入力する例</th><th>候補として見つけたい氏名</th></tr></thead><tbody>
+<tr><td>我慢しながら妻を守り功績を残す</td><td>我妻功</td></tr>
+<tr><td>御礼を述べ子どもと柴犬を博物館へ連れて行く</td><td>御子柴博</td></tr>
+<tr><td>財産を守って前へ進み稔る秋を迎える</td><td>財前稔</td></tr>
+<tr><td>藤田太郎</td><td>一致文字数の異なる複数の候補</td></tr>
+</tbody></table></div>
+<div class="notice">この検索は漢字の読みや日本語の意味を解析する機能ではありません。入力文字がファイル名に含まれているかを文字単位で調べ、ヒット数で並べます。</div></section>
+<section id="copy"><h2>コピー・連番付与</h2>
+<ol class="steps"><li>コピー先フォルダを選んだ状態で、検索結果から目的の行を選択します。</li>
+<li><strong>Enter</strong> を押すと、そのファイルをコピー先へコピーします。</li>
+<li>「連番付与」をONにすると、<code>001_</code> のような番号がファイル名の先頭に付きます。画面下部の「次の番号」を変更することもできます。</li>
+</ol><div class="notice warn"><strong>上書きに注意：</strong>コピー先に同名ファイルがある場合、確認ダイアログが表示されます。「いいえ」で中止できます。コピーが成功したときだけ連番が進みます。</div>
+<p>コピー成功後は検索欄へ戻ります。テスト時は、必ず架空データと専用のコピー先フォルダを使用してください。</p></section>
+<section id="demo"><h2>付属デモデータで試す</h2>
+<p>配布物には2025年9月・10月の架空の氏名ファイルを各15件、合計30件収録しています。</p>
+<pre><code>demo_data/
+  202509/           9月のダミー15件
+  202510/           10月のダミー15件
+  検索例一覧.csv    検索キーワードと対象ファイル
+  使い方.txt</code></pre>
+<p>それぞれの月フォルダを「検索フォルダ 1」「検索フォルダ 2」に設定してください。<code>検索例一覧.csv</code> には、熟語検索用と一致数・色分け確認用の例があります。</p>
+</section><section id="notes"><h2>よくある確認事項</h2><div class="table-wrap"><table><thead><tr><th>状態</th><th>確認すること</th></tr></thead><tbody>
+<tr><td>検索しても出ない</td><td>検索フォルダの指定先とON/OFF、ファイルの存在を確認します。</td></tr>
+<tr><td>Tabで選択できない</td><td>先に検索欄でEnterを押して結果を表示し、Tabで移動してください。</td></tr>
+<tr><td>コピーされない</td><td>コピー先フォルダ、対象ファイル、書込権限、上書き確認ダイアログを確認します。</td></tr>
+<tr><td>設定が変わった</td><td><code>file-search.cfg</code> は自動保存されます。既存設定はバックアップしてください。</td></tr>
+</tbody></table></div>
+<p class="tag">本ツールは実用プログラムのテーマ適用例です。デザインはGUI Design Studioで作成したUrbanテーマを使用しています。</p>
+</section>
+</main>
+<footer>使い方ガイド | 更新日：2026/11/16 | 画面見本はWindows実機で撮影した参考画像です。</footer>
+</body></html>
