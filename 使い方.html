@@ -17,8 +17,21 @@ footer{max-width:1140px;margin:auto;padding:6px 22px 35px;color:var(--muted);fon
 </style>
 </head>
 <body>
-<header><div class="head"><div class="eyebrow">FILE-SEARCH / USER GUIDE</div><h1>File-Search v1.00</h1><p class="lead">2つのフォルダを横断検索。漢字を手掛かりに候補を見つけ、選択したファイルを安全にコピーします。</p><span class="pill">Windows向け · ローカルで閲覧可能 · 追加フォント不要</span></div></header>
-<main class="layout"><nav aria-label="目次"><a href="#overview">画面</a><a href="#start">起動と設定</a><a href="#search">検索</a><a href="#copy">コピー</a><a href="#demo">デモ</a><a href="#notes">FAQ</a></nav>
+<header><div class="head"><div class="eyebrow">FILE-SEARCH / USER GUIDE</div><h1>File-Search v1.00</h1><p class="lead">難しい氏名の漢字も、変換しやすい短い言葉を組み合わせて検索。漢字の一致数で候補を絞り、ファイルをコピーします。</p><span class="pill">Windows向け · ローカルで閲覧可能 · 追加フォント不要</span></div></header>
+<main class="layout"><nav aria-label="目次"><a href="#feature">このツールの特徴</a><a href="#overview">画面</a><a href="#start">起動と設定</a><a href="#search">検索</a><a href="#copy">コピー</a><a href="#demo">デモ</a><a href="#notes">FAQ</a></nav>
+<section id="feature"><h2>最初に試してほしい検索</h2>
+<p>探したい氏名の漢字が変換しにくいときは、<strong>短い単語を続けて入力するだけ</strong>。文章にする必要はありません。</p>
+<div class="notice"><strong>検索欄への入力：<code>吉田美しい咲く</code></strong><br>
+「吉田」で吉・田、「美しい」で美、「咲く」で咲、の<strong>4文字が一致</strong>し、<code>20251028-吉田美咲.txt</code> が候補の上位に表示されます。</div>
+<p>付属の30件のデモデータでは、この入力で次の順序になります。</p>
+<div class="table-wrap"><table><thead><tr><th>一致文字数</th><th>検索結果の例</th></tr></thead><tbody>
+<tr><td><strong>4文字</strong></td><td><strong>20251028-吉田美咲.txt</strong></td></tr>
+<tr><td>3文字</td><td>20250927-田中美咲.txt</td></tr>
+<tr><td>2文字</td><td>20250929-吉田花子.txt</td></tr>
+</tbody></table></div>
+<p>入力した漢字がファイル名の<strong>離れた場所にあっても一致</strong>し、一致文字数の多い順に並びます。背景色も一致度に応じて変わります。</p>
+<div class="notice">読み仮名や言葉の意味を解析しているのではありません。入力した文字がファイル名に含まれるかを1文字ずつ数える仕組みです。</div>
+</section>
 <section id="overview"><h2>画面の概要</h2>
 <figure class="figure"><img class="shot" src="docs/画面見本_Windows実機.png" alt="File-SearchのWindows実行画面：検索フォルダ、検索欄、一覧、連番設定" loading="eager"><figcaption>画面見本（Windows実機）。検索フォルダ、コピー先、検索欄、結果一覧、連番設定をメイン画面に配置しています。</figcaption></figure>
 <p>File-Searchは、最大2つのフォルダにあるファイルを名前から検索し、選んだファイルを指定先へコピーするためのツールです。検索対象のフォルダをON/OFFできます。</p></section>
@@ -29,18 +42,18 @@ footer{max-width:1140px;margin:auto;padding:6px 22px 35px;color:var(--muted);fon
 <li>「コピー先フォルダ」を押して、コピー先を指定します。</li>
 </ol><div class="notice">フォルダ指定やON/OFFなどの変更は <code>file-search.cfg</code> に自動保存されます。既存設定がある場合は上書きせずバックアップしてから更新してください。</div></section>
 <section id="search"><h2>検索の方法</h2><ol class="steps">
-<li>「検索文字」欄に文字を入力します。氏名を通常どおり入力するほか、目的の漢字を含む語句を続けて入力できます。</li>
+<li>「検索文字」欄に文字を入力します。氏名を通常どおり入力するほか、変換しやすい短い語句をつないで必要な漢字を入力できます。文章にする必要はありません。</li>
 <li><strong>Enter</strong> で検索すると、一致文字数が多いファイルが上に並びます。背景の淡い青は一致度に応じて変化します。</li>
 <li><strong>Tab</strong> で検索結果の先頭へ移動し、<strong>↑ / ↓</strong> でファイルを選びます。</li>
 <li>検索結果上で <strong>Tab</strong> を押すと検索欄へ戻ります。入力文字が選択され、次の検索を始められます。</li>
 </ol>
-<div class="table-wrap"><table><thead><tr><th>検索欄へ入力する例</th><th>候補として見つけたい氏名</th></tr></thead><tbody>
-<tr><td>我慢しながら妻を守り功績を残す</td><td>我妻功</td></tr>
-<tr><td>御礼を述べ子どもと柴犬を博物館へ連れて行く</td><td>御子柴博</td></tr>
-<tr><td>財産を守って前へ進み稔る秋を迎える</td><td>財前稔</td></tr>
-<tr><td>藤田太郎</td><td>一致文字数の異なる複数の候補</td></tr>
+<div class="table-wrap"><table><thead><tr><th>検索欄への入力例</th><th>探したい氏名</th><th>一致文字数</th></tr></thead><tbody>
+<tr><td><code>吉田美しい咲く</code></td><td>吉田美咲</td><td>4</td></tr>
+<tr><td><code>我慢妻功績</code></td><td>我妻功</td><td>3</td></tr>
+<tr><td><code>小鳥遊ぶ透ける</code></td><td>小鳥遊透</td><td>4</td></tr>
+<tr><td><code>烏龍丸太毅然</code></td><td>烏丸毅</td><td>3</td></tr>
 </tbody></table></div>
-<div class="notice">この検索は漢字の読みや日本語の意味を解析する機能ではありません。入力文字がファイル名に含まれているかを文字単位で調べ、ヒット数で並べます。</div></section>
+<div class="notice">この検索は漢字の読みや日本語の意味を解析する機能ではありません。入力文字がファイル名に含まれているかを文字単位で調べ、一致文字数の多い順に並べます。</div></section>
 <section id="copy"><h2>コピー・連番付与</h2>
 <ol class="steps"><li>コピー先フォルダを選んだ状態で、検索結果から目的の行を選択します。</li>
 <li><strong>Enter</strong> を押すと、そのファイルをコピー先へコピーします。</li>
@@ -54,7 +67,7 @@ footer{max-width:1140px;margin:auto;padding:6px 22px 35px;color:var(--muted);fon
   202510/           10月のダミー15件
   検索例一覧.csv    検索キーワードと対象ファイル
   使い方.txt</code></pre>
-<p>それぞれの月フォルダを「検索フォルダ 1」「検索フォルダ 2」に設定してください。<code>検索例一覧.csv</code> には、熟語検索用と一致数・色分け確認用の例があります。</p>
+<p>それぞれの月フォルダを「検索フォルダ 1」「検索フォルダ 2」に設定してください。<code>検索例一覧.csv</code> には、短い単語を使った検索例と一致数・色分け確認用の例があります。</p>
 </section><section id="notes"><h2>よくある確認事項</h2><div class="table-wrap"><table><thead><tr><th>状態</th><th>確認すること</th></tr></thead><tbody>
 <tr><td>検索しても出ない</td><td>検索フォルダの指定先とON/OFF、ファイルの存在を確認します。</td></tr>
 <tr><td>Tabで選択できない</td><td>先に検索欄でEnterを押して結果を表示し、Tabで移動してください。</td></tr>
@@ -64,5 +77,5 @@ footer{max-width:1140px;margin:auto;padding:6px 22px 35px;color:var(--muted);fon
 <p class="tag">本ツールは実用プログラムのテーマ適用例です。デザインはGUI Design Studioで作成したUrbanテーマを使用しています。</p>
 </section>
 </main>
-<footer>使い方ガイド | 更新日：2026/11/16 | 画面見本はWindows実機で撮影した参考画像です。</footer>
+<footer>使い方ガイド | 説明更新日：2026/11/17 | 画面見本はWindows実機で撮影した参考画像です。</footer>
 </body></html>
