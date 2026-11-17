@@ -188,7 +188,7 @@ def FileListSetTree():
 
     # レコードの追加
     for i in range(len(name_list)):
-        tree.insert(parent='', index='end', iid=i ,values=(name_list[i],"SF" + str(name_list_num[i]+1),i))
+        tree.insert(parent='', index='end', iid=i ,values=(name_list[i],"SF" + str(name_list_num[i]+1),''))
 
 # Treeviewの内容を更新
 def setListTree():
@@ -199,6 +199,21 @@ def setListTree():
 def setInfomation(setstr):
     infoTxt = setstr
     infomationTxt.set(infoTxt)
+
+# 検索結果の色分け（ヒット数が多いほど背景が濃い）。
+# 最高ランクも黒系の文字が読みやすい明るさに抑える。
+HIT_COLORS = ('#E7F2FD', '#B6DAF8', '#81BCEA', '#68ABE0')
+HIT_FOREGROUND = '#172B42'
+
+
+def search_hit_color(hit_count, max_hit):
+    """検索結果のヒット数を4段階の背景色に変換する。"""
+    if hit_count <= 0 or max_hit <= 0:
+        return THEME_COLORS['surface']
+    level = min(len(HIT_COLORS) - 1,
+                (hit_count * len(HIT_COLORS) - 1) // max_hit)
+    return HIT_COLORS[level]
+
 
 def funcWordSet(event):
     global name_list
@@ -247,14 +262,9 @@ def funcWordSet(event):
             if name_list_hit[i] == cntlp:
                 tree.insert(parent='', index='end', iid=cnt ,values=(name_list[i],"SF"+str(name_list_num[i]+1),name_list_hit[i]), tags=str(cnt))
 
-                # 一致度による表示順は従来どおり。背景だけUrbanの淡いブルーに統一。
-                strength = name_list_hit[i] / cnt_max
-                base = (255, 255, 255)
-                target = (212, 229, 255)
-                blend = 0.35 + 0.65 * strength
-                rgb = tuple(round(a + (b - a) * blend) for a, b in zip(base, target))
-                col = '#%02X%02X%02X' % rgb
-                tree.tag_configure(str(cnt), background=col)
+                # 並び順はそのまま、背景色を4段階で明確に区別。
+                col = search_hit_color(name_list_hit[i], cnt_max)
+                tree.tag_configure(str(cnt), background=col, foreground=HIT_FOREGROUND)
 
                 cur_id = 0
                 cnt += 1
@@ -593,16 +603,27 @@ ttk.Label(search_card, text='Enter: 検索  /  Tab: 検索結果へ  /  結果�
 list_card = ttk.Frame(outer, padding=12, style='Card.TFrame')
 list_card.grid(row=3, column=0, sticky='nsew', pady=(0, 12))
 list_card.columnconfigure(0, weight=1)
-list_card.rowconfigure(1, weight=1)
+list_card.rowconfigure(3, weight=1)
 ttk.Label(list_card, text='検索結果', style='Section.TLabel').grid(
-    row=0, column=0, sticky='w', pady=(0, 8))
+    row=0, column=0, sticky='w', pady=(0, 5))
+# 列見出しを隠す従来の操作性を維持し、すぐ上に意味を説明。
+ttk.Label(
+    list_card,
+    text='SF1＝検索フォルダ1  /  SF2＝検索フォルダ2  /  右端の数値＝ヒット数',
+    style='FileSearchMuted.TLabel'
+).grid(row=1, column=0, sticky='w')
+ttk.Label(
+    list_card,
+    text='ヒット数：入力した文字がファイル名に含まれる数  /  青が濃いほどヒット数が多い',
+    style='FileSearchMuted.TLabel'
+).grid(row=2, column=0, sticky='w', pady=(1, 8))
 # Treeviewはshow='headings'で列を表示し、空のheading layoutで見出しだけ隠す。
 # 従来のTreeview.values・選択イベント・コピー対象の判定は不変。
 style.layout('Treeview.Heading', [])
 column = ('Name', 'Date', 'MP')
 tree = ttk.Treeview(list_card, columns=column, selectmode='browse',
                     show='headings', style='FileSearch.Treeview')
-tree.grid(row=1, column=0, sticky='nsew')
+tree.grid(row=3, column=0, sticky='nsew')
 tree.column('Name', anchor='w', width=570, stretch=True)
 tree.column('Date', anchor='center', width=70, stretch=False)
 tree.column('MP', anchor='center', width=65, stretch=False)
@@ -613,7 +634,7 @@ tree.bind('<Return>', select_record)
 tree.bind('<Tab>', funcResultTab)
 tree.bind('<Shift-Tab>', funcResultTab)
 scr_bar = ttk.Scrollbar(list_card, orient='vertical', command=tree.yview)
-scr_bar.grid(row=1, column=1, sticky='ns')
+scr_bar.grid(row=3, column=1, sticky='ns')
 tree.configure(yscrollcommand=scr_bar.set)
 
 # 連番のON/OFFと次の番号もメイン画面で変更・保存できる。
