@@ -7,6 +7,8 @@ import sys
 import tempfile
 import tkinter as tk
 import unittest
+import time
+import threading
 from unittest.mock import patch
 
 APP = Path(__file__).resolve().parents[1]
@@ -33,9 +35,26 @@ class UITests(unittest.TestCase):
         self.ns = namespace['folderSet'].__globals__
         self.root = self.ns['root']
         self.addCleanup(self.root.destroy)
+        self.wait_for_tasks()
+        # 本番の非同期処理が完了してから既存の操作結果を検証する。
+        for name in ('folderSet', 'sfs1_toggle', 'funcWordSet', 'select_record'):
+            original = self.ns[name]
+            def waited(*args, original=original, **kwargs):
+                result = original(*args, **kwargs)
+                self.wait_for_tasks()
+                return result
+            self.ns[name] = waited
         self.root.update()
         self.root.focus_force()
         self.root.update()
+
+    def wait_for_tasks(self):
+        deadline = time.monotonic() + 10
+        while self.root.tk.call('after', 'info'):
+            if time.monotonic() >= deadline:
+                self.fail('background task timed out')
+            self.root.update()
+            time.sleep(0.002)
 
     def setup_folder(self):
         with patch('tkinter.filedialog.askdirectory', return_value=str(self.source)):
@@ -49,6 +68,36 @@ class UITests(unittest.TestCase):
         self.assertFalse((self.path / 'file-search.cfg').exists())
         self.assertEqual(self.ns['destination_var'].get(), '')
         self.assertFalse(hasattr(self.ns, 'open_settings_dialog'))
+
+    def test_slow_search_keeps_gui_responsive(self):
+        release = threading.Event()
+        self.addCleanup(release.set)
+        original = self.ns['collect_files']
+        def slow(*args):
+            release.wait(5)
+            return original(*args)
+        self.ns['collect_files'] = slow
+        try:
+            self.ns['setListTree']()
+            heartbeat = []
+            self.root.after(0, lambda: heartbeat.append(True))
+            self.root.update()
+            self.assertEqual(heartbeat, [True])
+            self.assertIsNone(self.ns['cur_id'])
+        finally:
+            release.set()
+            self.wait_for_tasks()
+
+    def test_large_file_list_excludes_directories_and_finishes(self):
+        for i in range(1500):
+            (self.source / f'dummy{i:04d}.txt').write_text('dummy')
+        (self.source / 'dummy-directory').mkdir()
+        self.setup_folder()
+        self.ns['entry1'].insert(0, 'dummy')
+        self.ns['funcWordSet'](None)
+        tree = self.ns['tree']
+        self.assertEqual(len(tree.get_children()), 1500)
+        self.assertEqual(tree.item('0', 'values')[0], 'dummy1499.txt')
 
     def test_folder_destination_and_switch_auto_save(self):
         self.setup_folder()

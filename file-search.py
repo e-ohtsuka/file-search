@@ -6,6 +6,8 @@ import tkinter.font
 import tkinter.filedialog
 import shutil
 import datetime
+import threading
+import queue
 
 from tkinter import ttk
 from tkinter import messagebox
@@ -38,6 +40,38 @@ sfn0, sfn1, sfnAll = range(3)
 name_list = []
 name_list_num = []
 cur_id = 0
+list_generation = 0
+copy_busy = False
+
+
+def run_background(work, done):
+    """ワーカーはTkに触れず、結果の反映だけメインスレッドで行う。"""
+    results = queue.Queue()
+
+    def worker():
+        try:
+            results.put((work(), None))
+        except (OSError, ValueError, RuntimeError) as exc:
+            results.put((None, exc))
+
+    def poll():
+        try:
+            result, error = results.get_nowait()
+        except queue.Empty:
+            root.after(15, poll)
+        else:
+            done(result, error)
+
+    threading.Thread(target=worker, daemon=True).start()
+    root.after(15, poll)
+
+
+def close_app():
+    # コピー途中でプロセスを終了して、コピー先を途中の状態にしない。
+    if copy_busy:
+        root.after(50, close_app)
+    else:
+        root.destroy()
 
 # デスクトップパスを取得
 def getDeskTop():
@@ -145,55 +179,75 @@ def choose_copy_folder():
     return True
 
 # 有効な検索フォルダからファイル一覧を取得
-def getNameList():
-    global name_list
-    global name_list_num
+def collect_files(folders, enabled, search_txt):
+    rows, errors = [], []
+    for num, folder in enumerate(folders):
+        if not enabled[num] or not folder:
+            continue
+        try:
+            with os.scandir(folder) as entries:
+                for entry in entries:
+                    try:
+                        if entry.is_file():
+                            hits = sum(ch in entry.name for ch in search_txt)
+                            if not search_txt or hits:
+                                rows.append((entry.name, hits, num))
+                    except OSError as exc:
+                        errors.append(f'{entry.name}: {exc}')
+        except OSError as exc:
+            errors.append(f'SF{num + 1}: {exc}')
+    rows.sort(key=lambda row: (row[1], row[0], row[2]), reverse=True)
+    return rows, errors
 
-    name_list = []
-    name_list_num = []
 
-    if sfs1_var.get() == 0 and sfs2_var.get() == 0:
-        return
+def setListTree(search_txt=''):
+    global list_generation, cur_id
+    list_generation += 1
+    generation = list_generation
+    cur_id = None
+    folders = tuple(searchFolder)
+    enabled = (sfs1_var.get(), sfs2_var.get())
 
-    # 有効かつ実在する検索フォルダだけを読み込む。
-    # 空文字や無効なパスに対して os.listdir() を呼ばないようにする。
-    nl1 = []
-    nl1_num = []
-    if sfs1_var.get() != 0 and searchFolder[sfn0] != "" and os.path.isdir(searchFolder[sfn0]):
-        nl1 = os.listdir(searchFolder[sfn0])
-        nl1_num = [sfn0] * len(nl1)
+    def ready(result, error):
+        if generation != list_generation:
+            return
+        if error:
+            setInfomation(f'一覧取得失敗: {error}')
+            return
+        rows, errors = result
+        if errors:
+            setInfomation('一覧取得失敗: ' + ' / '.join(errors[:3]))
+        old_items = list(tree.get_children())
+        max_hit = rows[0][1] if rows else 0
 
-    nl2 = []
-    nl2_num = []
-    if sfs2_var.get() != 0 and searchFolder[sfn1] != "" and os.path.isdir(searchFolder[sfn1]):
-        nl2 = os.listdir(searchFolder[sfn1])
-        nl2_num = [sfn1] * len(nl2)
+        def render(offset=0):
+            global cur_id
+            if generation != list_generation:
+                return
+            # 大量の削除・追加でもイベントループへ制御を返す。
+            if old_items:
+                batch = old_items[-200:]
+                del old_items[-200:]
+                tree.delete(*batch)
+                root.after(1, render)
+                return
+            for i in range(offset, min(offset + 200, len(rows))):
+                name, hits, num = rows[i]
+                tag = f'hit{hits}' if search_txt else ''
+                tree.insert('', 'end', iid=i,
+                            values=(name, hits if search_txt else '', f'SF{num + 1}'),
+                            tags=(tag,) if tag else ())
+                if tag:
+                    tree.tag_configure(tag, background=search_hit_color(hits, max_hit),
+                                       foreground=HIT_FOREGROUND)
+            if offset + 200 < len(rows):
+                root.after(1, lambda: render(offset + 200))
+            else:
+                cur_id = 0 if rows else None
+                schedule_result_cursor()
+        render()
 
-    name_list = nl1 + nl2
-    name_list_num = nl1_num + nl2_num
-
-    # ファイル名と検索フォルダ番号の対応を保ったまま降順ソートする。
-    zip_sort = sorted(zip(name_list, name_list_num), reverse=True)
-
-    # 対象ファイルが0件なら空のままにする。
-    if zip_sort:
-        name_list, name_list_num = zip(*zip_sort)
-    else:
-        name_list, name_list_num = [], []
-
-# 取得したファイル一覧をTreeviewへ表示
-def FileListSetTree():
-
-    tree.delete(*tree.get_children())
-
-    # レコードの追加
-    for i in range(len(name_list)):
-        tree.insert(parent='', index='end', iid=i ,values=(name_list[i], '', "SF" + str(name_list_num[i]+1)))
-
-# Treeviewの内容を更新
-def setListTree():
-        getNameList()
-        FileListSetTree()
+    run_background(lambda: collect_files(folders, enabled, search_txt), ready)
 
 # ステータス表示を更新
 def setInfomation(setstr):
@@ -216,60 +270,8 @@ def search_hit_color(hit_count, max_hit):
 
 
 def funcWordSet(event):
-    global name_list
-    global cur_id
-
-    #リストデータ削除
-    tree.delete(*tree.get_children())
-
-    #文字列を取得
-    getTxt = entry1.get()
-
-    #スペース（全角、半角）を削除
-    getTxt = getTxt.replace(' ', '')
-    getTxt = getTxt.replace('　', '')
-
-    search_txt = getTxt
-
-    if search_txt == "":
-        setListTree()
-
-    #リスト化
-    getTxt = []
-
-    #ファイル一覧を取得
-    getNameList()
-
-    name_list_hit = [0] * len(name_list)
-
-    cnt_max = 0
-    for i,name in enumerate(name_list):
-        for ii in range(len(search_txt)):
-
-            if name.find(search_txt[ii]) != -1:
-                name_list_hit[i] += 1
-
-                if cnt_max < name_list_hit[i]:
-                    cnt_max = name_list_hit[i]
-
-    cur_id = None
-    cnt = 0
-
-    cntlp = cnt_max
-    while cntlp>0:
-
-        for i in range(len(name_list)):
-            if name_list_hit[i] == cntlp:
-                tree.insert(parent='', index='end', iid=cnt ,values=(name_list[i],name_list_hit[i],"SF"+str(name_list_num[i]+1)), tags=str(cnt))
-
-                # 並び順はそのまま、背景色を4段階で明確に区別。
-                col = search_hit_color(name_list_hit[i], cnt_max)
-                tree.tag_configure(str(cnt), background=col, foreground=HIT_FOREGROUND)
-
-                cur_id = 0
-                cnt += 1
-
-        cntlp -= 1
+    search_txt = entry1.get().replace(' ', '').replace('　', '')
+    setListTree(search_txt)
 
 # Tabで検索結果の先頭行を選択し、キーボード操作先も一覧へ移動する。
 def funcWordSetTab(event):
@@ -351,8 +353,9 @@ def funcResultTab(event):
 
 # 選択ファイルをコピー。検索とファイル名の連番付与形式は従来どおり。
 def select_record(event):
-    global cntNum
-
+    global copy_busy
+    if copy_busy or cur_id is None:
+        return 'break'
     record_id = tree.focus()
     if not record_id or not tree.exists(record_id):
         setInfomation('コピーするファイルを選択してください。')
@@ -360,52 +363,70 @@ def select_record(event):
     values = tree.item(record_id, 'values')
     if len(values) < 3:
         return 'break'
-    if not saveFolder or not os.path.isdir(saveFolder):
-        setInfomation('コピー先フォルダを指定してください。')
-        return 'break'
-
     sf_num = sfn0 if values[2] == 'SF1' else sfn1
     source_file = Path(searchFolder[sf_num]) / values[0]
     numbering = bool(nmb_var.get())
-    target_name = (f'{cntNum:03d}_' if numbering else '') + values[0]
-    target_file = Path(saveFolder) / target_name
+    number = cntNum
+    target_name = (f'{number:03d}_' if numbering else '') + values[0]
+    destination = saveFolder
+    target_file = Path(destination) / target_name
+    copy_busy = True
 
-    # 同じ場所へのコピーと、意図しない上書きを防ぐ。
-    # 「いいえ」を既定にし、既存ファイルは明示的に承認された場合だけ上書きする。
-    if source_file.resolve() == target_file.resolve():
-        setInfomation('コピー元とコピー先が同じファイルです。')
-        return 'break'
-    if target_file.is_dir():
-        setInfomation('コピー先に同名のフォルダがあります。')
-        return 'break'
-    if target_file.exists() and not messagebox.askyesno(
-            '上書きの確認',
-            f'コピー先に同じ名前のファイルが存在します。\n\n'
-            f'{target_name}\n\n上書きしますか？',
-            icon='warning', default=messagebox.NO, parent=root):
-        setInfomation('コピーを中止しました（同名ファイル）。')
-        return 'break'
-
-    try:
-        shutil.copy2(source_file, target_file)
-    except OSError as exc:
+    def fail(exc):
+        global copy_busy
+        copy_busy = False
         setInfomation(f'コピー失敗: {type(exc).__name__}: {exc}')
-        return 'break'
 
-    # 実際にコピーできた場合のみ連番を進める。
-    if numbering:
-        cntNum += 1
-        numberTxt.set(intToStr03(cntNum))
-        persist_current_settings()
-    setInfomation('-> ' + target_name)
-    entry1.focus_set()
-    entry1.selection_range(0, tk.END)
+    def inspect():
+        if not destination or not Path(destination).is_dir():
+            raise ValueError('コピー先フォルダを指定してください。')
+        if not source_file.is_file():
+            raise ValueError('コピー元が存在しないか、ファイルではありません。')
+        if source_file.resolve() == target_file.resolve():
+            raise ValueError('コピー元とコピー先が同じファイルです。')
+        if target_file.is_dir():
+            raise ValueError('コピー先に同名のフォルダがあります。')
+        return target_file.exists()
+
+    def copied(result, error):
+        global cntNum, copy_busy
+        copy_busy = False
+        if error:
+            fail(error)
+            return
+        if numbering:
+            cntNum = number + 1
+            numberTxt.set(intToStr03(cntNum))
+            persist_current_settings()
+        setInfomation('-> ' + target_name)
+        entry1.focus_set()
+        entry1.selection_range(0, tk.END)
+
+    def checked(exists, error):
+        global copy_busy
+        if error:
+            fail(error)
+            return
+        if exists and not messagebox.askyesno(
+                '上書きの確認',
+                f'コピー先に同じ名前のファイルが存在します。\n\n'
+                f'{target_name}\n\n上書きしますか？',
+                icon='warning', default=messagebox.NO, parent=root):
+            copy_busy = False
+            setInfomation('コピーを中止しました（同名ファイル）。')
+            return
+        run_background(lambda: shutil.copy2(source_file, target_file), copied)
+
+    run_background(inspect, checked)
     return 'break'
 
 
 def funcNumberGet(event=None):
     """メイン画面の次の番号を更新。3桁以上も入力可能。"""
     global cntNum
+    if copy_busy:
+        numberTxt.set(intToStr03(cntNum))
+        return 'break'
     value = entry2.get().strip()
     if (not value or not value.isascii() or not value.isdecimal()
             or len(value) > 12):
@@ -439,44 +460,51 @@ def getCfgFile():
     global num_sw
     global cntNum
 
-    if CFG_FILE.is_file():
-        with CFG_FILE.open('r', encoding='utf-8') as f:
+    global infoTxt
+    try:
+        lines = CFG_FILE.read_text(encoding='utf-8').splitlines()
+    except FileNotFoundError:
+        return
+    except (OSError, UnicodeError) as exc:
+        infoTxt = f'設定読込失敗: {exc}'
+        return
 
-            # ','と'\n'を取り除いて、2次元配列に格納する
-            lines = f.readlines()
-            datas = []
-            for line in lines:
-                row = line.strip().split(';')
-                row = [col.replace('\n', '') for col in row]
-                datas.append(row)
-
-            for data in datas:
-                match data[0]:
-                    case 'in1':
-                        searchFolder[sfn0] = data[1]
-
-                    case 'in2':
-                        searchFolder[sfn1] = data[1]
-
-                    case 'out':
-                        saveFolder = data[1]
-
-                    case 'sf1_sw':
-                        sf1_sw = data[1]
-
-                    case 'sf2_sw':
-                        sf2_sw = data[1]
-
-                    case 'num_sw':
-                        num_sw = data[1]
-
-                    case 'cntNum':
-                        cntNum = int(data[1])
-
-            # 存在チェック
-            if saveFolder and not os.path.exists(saveFolder):
-                os.makedirs(saveFolder, exist_ok=True)
-
+    errors = []
+    for line in lines:
+        key, sep, value = line.strip().partition(';')
+        if key not in {'in1', 'in2', 'out', 'sf1_sw', 'sf2_sw', 'num_sw', 'cntNum'}:
+            continue
+        if not sep or '\x00' in value:
+            errors.append(key)
+            continue
+        if key in {'sf1_sw', 'sf2_sw', 'num_sw'}:
+            if value not in {'0', '1'}:
+                errors.append(key)
+                continue
+            if key == 'sf1_sw':
+                sf1_sw = int(value)
+            elif key == 'sf2_sw':
+                sf2_sw = int(value)
+            else:
+                num_sw = int(value)
+        elif key == 'cntNum':
+            if not value or not value.isascii() or not value.isdecimal() or len(value) > 12:
+                errors.append(key)
+                continue
+            cntNum = int(value)
+        elif key == 'in1':
+            searchFolder[sfn0] = value
+        elif key == 'in2':
+            searchFolder[sfn1] = value
+        else:
+            saveFolder = value
+    if errors:
+        infoTxt = '不正な設定を無視しました: ' + ', '.join(errors)
+    try:
+        if saveFolder:
+            os.makedirs(saveFolder, exist_ok=True)
+    except (OSError, ValueError) as exc:
+        infoTxt = f'コピー先の準備失敗: {exc}'
 
 
 # ---------------------------------------------------------------------------
@@ -548,6 +576,7 @@ def persist_current_settings():
 getCfgFile()
 # テーマ適用はGUIの構築時に一度だけ行う。検索・コピー等の処理は従来の関数を使う。
 root = tk.Tk()
+root.protocol('WM_DELETE_WINDOW', close_app)
 root.title('File-Search v1.00  |  Urban Theme')
 root.geometry('1060x840')
 root.minsize(790, 630)

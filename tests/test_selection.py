@@ -20,8 +20,9 @@ class SelectionTests(unittest.TestCase):
                             for node in ast.walk(handler)))
 
     def test_selected_style_is_high_contrast(self):
-        self.assertIn("background=[('selected', THEME_COLORS['accent'])]", SOURCE)
-        self.assertIn("foreground=[('selected', THEME_COLORS['accent_text'])]", SOURCE)
+        self.assertIn("background=[('selected', THEME_COLORS['surface'])]", SOURCE)
+        self.assertIn("foreground=[('selected', HIT_FOREGROUND)]", SOURCE)
+        self.assertIn("RESULT_CURSOR_BORDER = '#915100'", SOURCE)
 
 if __name__ == '__main__':
     unittest.main()
