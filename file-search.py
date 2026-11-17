@@ -280,8 +280,17 @@ def funcWordSetTab(event):
         tree.focus_set()                 # Tab後の↑↓/Enterを一覧で受け付ける
         return 'break'                  # 標準のTab移動で上書きされないようにする
 
+# 検索結果以外にフォーカスがある間は選択行のカーソル（オレンジ）を非表示。
+# Treeviewのfocus対象行は残し、Tabで検索結果に戻る操作を妨げない。
+def hide_result_cursor(event=None):
+    selected = tree.selection()
+    if selected:
+        tree.selection_remove(*selected)
+
+
 # 検索結果からTabで検索欄へ戻り、すぐ次の検索文字を入力できる。
 def funcResultTab(event):
+    hide_result_cursor()  # FocusOutイベントが起きる前にも確実に選択表示を解除
     entry1.focus_set()
     entry1.selection_range(0, tk.END)
     return 'break'
@@ -634,6 +643,7 @@ tree.heading('Folder', text='検索フォルダNo.', anchor='center')
 tree.bind('<Return>', select_record)
 tree.bind('<Tab>', funcResultTab)
 tree.bind('<Shift-Tab>', funcResultTab)
+tree.bind('<FocusOut>', hide_result_cursor)  # マウス操作でフォーカスが外れた場合も非表示
 scr_bar = ttk.Scrollbar(list_card, orient='vertical', command=tree.yview)
 scr_bar.grid(row=2, column=1, sticky='ns')
 tree.configure(yscrollcommand=scr_bar.set)
