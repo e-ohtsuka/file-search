@@ -20,8 +20,12 @@ class SelectionTests(unittest.TestCase):
                             for node in ast.walk(handler)))
 
     def test_selected_style_is_high_contrast(self):
-        self.assertIn("background=[('selected', THEME_COLORS['accent'])]", SOURCE)
-        self.assertIn("foreground=[('selected', THEME_COLORS['accent_text'])]", SOURCE)
+        self.assertIn("SELECTED_ROW_BG = '#FFD38A'", SOURCE)
+        self.assertIn("SELECTED_ROW_FG = '#172B42'", SOURCE)
+        self.assertIn("background=[('selected', SELECTED_ROW_BG)]", SOURCE)
+        self.assertIn("foreground=[('selected', SELECTED_ROW_FG)]", SOURCE)
+        self.assertIn("tree.heading('Hits', text='検索ヒット数'", SOURCE)
+        self.assertIn("tree.heading('Folder', text='検索フォルダNo.'", SOURCE)
 
 if __name__ == '__main__':
     unittest.main()
