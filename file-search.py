@@ -188,7 +188,7 @@ def FileListSetTree():
 
     # レコードの追加
     for i in range(len(name_list)):
-        tree.insert(parent='', index='end', iid=i ,values=(name_list[i],"SF" + str(name_list_num[i]+1),''))
+        tree.insert(parent='', index='end', iid=i ,values=(name_list[i], '', "SF" + str(name_list_num[i]+1)))
 
 # Treeviewの内容を更新
 def setListTree():
@@ -260,7 +260,7 @@ def funcWordSet(event):
 
         for i in range(len(name_list)):
             if name_list_hit[i] == cntlp:
-                tree.insert(parent='', index='end', iid=cnt ,values=(name_list[i],"SF"+str(name_list_num[i]+1),name_list_hit[i]), tags=str(cnt))
+                tree.insert(parent='', index='end', iid=cnt ,values=(name_list[i],name_list_hit[i],"SF"+str(name_list_num[i]+1)), tags=str(cnt))
 
                 # 並び順はそのまま、背景色を4段階で明確に区別。
                 col = search_hit_color(name_list_hit[i], cnt_max)
@@ -296,13 +296,13 @@ def select_record(event):
         setInfomation('コピーするファイルを選択してください。')
         return 'break'
     values = tree.item(record_id, 'values')
-    if len(values) < 2:
+    if len(values) < 3:
         return 'break'
     if not saveFolder or not os.path.isdir(saveFolder):
         setInfomation('コピー先フォルダを指定してください。')
         return 'break'
 
-    sf_num = sfn0 if values[1] == 'SF1' else sfn1
+    sf_num = sfn0 if values[2] == 'SF1' else sfn1
     source_file = Path(searchFolder[sf_num]) / values[0]
     numbering = bool(nmb_var.get())
     target_name = (f'{cntNum:03d}_' if numbering else '') + values[0]
@@ -499,15 +499,23 @@ font = tk.font.Font(root, family=font_family, size=font_size)
 font_bold = tk.font.Font(root, family=font_family, size=font_size, weight='bold')
 font_search_word = tk.font.Font(root, family=font_family, size=font_size + 2)
 
-# Treeview は従来どおりファイル名／検索元を表示するが、見出しは非表示。
-# 標準ttkの列構成を使い、従来の検索関数から渡されるvaluesの形式を維持する。
+# Treeviewはファイル名・ヒット数・検索フォルダNo.を見出し付きで表示する。
+# 列を入れ替えたため、コピー元フォルダの判定にも3列目を使う。
 style.configure('FileSearch.Treeview', rowheight=30, background=THEME_COLORS['surface'],
                 fieldbackground=THEME_COLORS['surface'], foreground=THEME_COLORS['text'],
                 font=(font_family, font_size + 1), borderwidth=0)
-# 一致度の淡い青（行タグ）と明確に区別するため、選択行は濃い青＋白文字。
-# Treeviewの selected 状態に設定するので、検索結果の色分けはそのまま残る。
-style.map('FileSearch.Treeview', background=[('selected', THEME_COLORS['accent'])],
-          foreground=[('selected', THEME_COLORS['accent_text'])])
+# 検索ヒット数の青系背景と混同しないよう、選択行はアンバー＋濃色文字。
+# ttkのselected状態を用いるため、選択解除後は各行のヒット数色へ戻る。
+SELECTED_ROW_BG = '#FFD38A'
+SELECTED_ROW_FG = '#172B42'
+style.map('FileSearch.Treeview', background=[('selected', SELECTED_ROW_BG)],
+          foreground=[('selected', SELECTED_ROW_FG)])
+style.configure('FileSearch.Treeview.Heading',
+                background=THEME_COLORS['surface_alt'],
+                foreground=THEME_COLORS['text'],
+                font=(font_family, font_size, 'bold'),
+                padding=(7, 7))
+style.map('FileSearch.Treeview.Heading', background=[('active', THEME_COLORS['selection'])])
 style.configure('FileSearch.TFrame', background=THEME_COLORS['surface'])
 style.configure('FileSearch.TLabel', background=THEME_COLORS['surface'],
                 foreground=THEME_COLORS['text'], font=(font_family,font_size))
@@ -603,38 +611,31 @@ ttk.Label(search_card, text='Enter: 検索  /  Tab: 検索結果へ  /  結果�
 list_card = ttk.Frame(outer, padding=12, style='Card.TFrame')
 list_card.grid(row=3, column=0, sticky='nsew', pady=(0, 12))
 list_card.columnconfigure(0, weight=1)
-list_card.rowconfigure(3, weight=1)
+list_card.rowconfigure(2, weight=1)
 ttk.Label(list_card, text='検索結果', style='Section.TLabel').grid(
     row=0, column=0, sticky='w', pady=(0, 5))
-# 列見出しを隠す従来の操作性を維持し、すぐ上に意味を説明。
+# 文字ごとに一致判定。SF1/SF2はそれぞれ検索フォルダ1/2を表す。
 ttk.Label(
     list_card,
-    text='SF1＝検索フォルダ1  /  SF2＝検索フォルダ2  /  右端の数値＝ヒット数',
+    text='SF1＝検索フォルダ1  /  SF2＝検索フォルダ2  /  青が濃いほどヒット数が多い  /  選択中はオレンジ',
     style='FileSearchMuted.TLabel'
-).grid(row=1, column=0, sticky='w')
-ttk.Label(
-    list_card,
-    text='ヒット数：入力した文字がファイル名に含まれる数  /  青が濃いほどヒット数が多い',
-    style='FileSearchMuted.TLabel'
-).grid(row=2, column=0, sticky='w', pady=(1, 8))
-# Treeviewはshow='headings'で列を表示し、空のheading layoutで見出しだけ隠す。
-# 従来のTreeview.values・選択イベント・コピー対象の判定は不変。
-style.layout('Treeview.Heading', [])
-column = ('Name', 'Date', 'MP')
+).grid(row=1, column=0, sticky='w', pady=(0, 7))
+# 標準ヘッダーで見出しと各列を正確に揃える（列幅の変更にも追従）。
+column = ('Name', 'Hits', 'Folder')
 tree = ttk.Treeview(list_card, columns=column, selectmode='browse',
                     show='headings', style='FileSearch.Treeview')
-tree.grid(row=3, column=0, sticky='nsew')
-tree.column('Name', anchor='w', width=570, stretch=True)
-tree.column('Date', anchor='center', width=70, stretch=False)
-tree.column('MP', anchor='center', width=65, stretch=False)
-tree.heading('Name', text='')
-tree.heading('Date', text='')
-tree.heading('MP', text='')
+tree.grid(row=2, column=0, sticky='nsew')
+tree.column('Name', anchor='w', width=450, stretch=True)
+tree.column('Hits', anchor='center', width=130, minwidth=110, stretch=False)
+tree.column('Folder', anchor='center', width=165, minwidth=150, stretch=False)
+tree.heading('Name', text='ファイル名', anchor='w')
+tree.heading('Hits', text='検索ヒット数', anchor='center')
+tree.heading('Folder', text='検索フォルダNo.', anchor='center')
 tree.bind('<Return>', select_record)
 tree.bind('<Tab>', funcResultTab)
 tree.bind('<Shift-Tab>', funcResultTab)
 scr_bar = ttk.Scrollbar(list_card, orient='vertical', command=tree.yview)
-scr_bar.grid(row=3, column=1, sticky='ns')
+scr_bar.grid(row=2, column=1, sticky='ns')
 tree.configure(yscrollcommand=scr_bar.set)
 
 # 連番のON/OFFと次の番号もメイン画面で変更・保存できる。
