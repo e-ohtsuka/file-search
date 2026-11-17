@@ -110,6 +110,26 @@ class UITests(unittest.TestCase):
         self.root.update()
         self.assertEqual(self.root.focus_get(), entry)
         self.assertEqual(entry.selection_range(0, tk.END), None)
+        self.assertFalse(self.ns['tree'].selection())
+        # 同じTab操作で検索結果へ戻れば選択行を表示できる。
+        entry.event_generate('<Tab>', when='tail')
+        self.root.update()
+        self.assertEqual(self.root.focus_get(), self.ns['tree'])
+        self.assertTrue(self.ns['tree'].selection())
+
+    def test_selection_clears_when_focus_moves_to_another_control(self):
+        self.setup_folder()
+        self.ns['entry1'].insert(0, '我妻功')
+        self.ns['funcWordSet'](None)
+        self.ns['funcWordSetTab'](None)
+        self.root.update()
+        tree = self.ns['tree']
+        self.assertTrue(tree.selection())
+        # Tab以外の方法でフォーカスが移っても選択ハイライトを消す。
+        self.ns['entry2'].focus_set()
+        self.root.update()
+        self.assertEqual(self.root.focus_get(), self.ns['entry2'])
+        self.assertFalse(tree.selection())
 
     def test_next_number_copy_and_persist(self):
         self.setup_folder()
