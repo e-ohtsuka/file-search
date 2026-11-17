@@ -45,6 +45,43 @@ class UITests(unittest.TestCase):
         self.ns['sfs1_var'].set(1)
         self.ns['sfs1_toggle']()
 
+    def test_result_column_headings_and_selection_color(self):
+        tree = self.ns['tree']
+        self.assertEqual(tuple(tree['columns']), ('Name', 'Hits', 'Folder'))
+        self.assertEqual(tree.heading('Name')['text'], 'ファイル名')
+        self.assertEqual(tree.heading('Hits')['text'], '検索ヒット数')
+        self.assertEqual(tree.heading('Folder')['text'], '検索フォルダNo.')
+        style = self.ns['style']
+        self.assertEqual(style.lookup('FileSearch.Treeview', 'background', ('selected',)),
+                         '#FFD38A')
+        self.assertEqual(style.lookup('FileSearch.Treeview', 'foreground', ('selected',)),
+                         '#172B42')
+
+    def test_copy_from_second_folder_after_column_reorder(self):
+        source2 = self.path / 'source2'
+        source2.mkdir()
+        (source2 / 'SF2_sample.txt').write_text('second folder', encoding='utf-8')
+        with patch('tkinter.filedialog.askdirectory', return_value=str(source2)):
+            self.assertTrue(self.ns['folderSet'](1))
+        with patch('tkinter.filedialog.askdirectory', return_value=str(self.destination)):
+            self.assertTrue(self.ns['choose_copy_folder']())
+        self.ns['sfs2_var'].set(1)
+        self.ns['sfs2_toggle']()
+        self.ns['entry1'].insert(0, 'SF2')
+        self.ns['funcWordSet'](None)
+        tree = self.ns['tree']
+        rows = tree.get_children()
+        self.assertEqual(len(rows), 1)
+        values = tree.item(rows[0], 'values')
+        self.assertEqual(values[0], 'SF2_sample.txt')
+        self.assertEqual(str(values[1]), '3')
+        self.assertEqual(values[2], 'SF2')
+        tree.focus(rows[0])
+        tree.selection_set(rows[0])
+        self.ns['select_record'](None)
+        self.assertEqual((self.destination / 'SF2_sample.txt').read_text(encoding='utf-8'),
+                         'second folder')
+
     def test_startup_does_not_write_config_and_has_destination_button(self):
         self.assertFalse((self.path / 'file-search.cfg').exists())
         self.assertEqual(self.ns['destination_var'].get(), '')
