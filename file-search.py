@@ -280,9 +280,62 @@ def funcWordSetTab(event):
         tree.focus_set()                 # Tab後の↑↓/Enterを一覧で受け付ける
         return 'break'                  # 標準のTab移動で上書きされないようにする
 
-# 検索結果以外にフォーカスがある間は選択行のカーソル（オレンジ）を非表示。
-# Treeviewのfocus対象行は残し、Tabで検索結果に戻る操作を妨げない。
+# 標準Treeviewはselected行を単色で塗るため、行タグの色に合わせて
+# 選択色を更新する。選択中の表示は細い枠だけを重ねて描く。
+def update_result_cursor():
+    selected = tree.selection()
+    if not selected or root.focus_get() != tree or not tree.exists(selected[0]):
+        for edge in result_cursor_edges:
+            edge.place_forget()
+        return
+
+    item_id = selected[0]
+    tags = tree.item(item_id, 'tags')
+    row_background = (tree.tag_configure(tags[0], 'background')
+                      if tags else THEME_COLORS['surface'])
+    row_background = row_background or THEME_COLORS['surface']
+
+    # 選択色をタグ背景と一致させれば、選択してもヒット数の色が残る。
+    if style.lookup('FileSearch.Treeview', 'background', ('selected',)) != row_background:
+        style.map('FileSearch.Treeview', background=[('selected', row_background)])
+
+    bounds = tree.bbox(item_id)
+    if not bounds:
+        for edge in result_cursor_edges:
+            edge.place_forget()
+        return
+
+    x, y, w, h = bounds
+    x1 = max(1, x)
+    y1 = max(1, y)
+    x2 = min(tree.winfo_width() - 1, x + w)
+    y2 = min(tree.winfo_height() - 1, y + h)
+    if x2 - x1 < 2 * RESULT_CURSOR_WIDTH or y2 - y1 < 2 * RESULT_CURSOR_WIDTH:
+        for edge in result_cursor_edges:
+            edge.place_forget()
+        return
+
+    t = RESULT_CURSOR_WIDTH
+    edges = (
+        (x1, y1, x2 - x1, t),             # 上
+        (x1, y2 - t, x2 - x1, t),         # 下
+        (x1, y1, t, y2 - y1),             # 左
+        (x2 - t, y1, t, y2 - y1),         # 右
+    )
+    for edge, (px, py, pw, ph) in zip(result_cursor_edges, edges):
+        edge.place(x=px, y=py, width=pw, height=ph)
+        edge.lift()
+
+
+def schedule_result_cursor(event=None):
+    # マウス選択・↑↓・スクロール・サイズ変更後に描画位置を合わせる。
+    tree.after_idle(update_result_cursor)
+
+
+# 検索結果からフォーカスが外れたら選択枠を消す（行の焦点は保持）。
 def hide_result_cursor(event=None):
+    for edge in result_cursor_edges:
+        edge.place_forget()
     selected = tree.selection()
     if selected:
         tree.selection_remove(*selected)
@@ -513,12 +566,13 @@ font_search_word = tk.font.Font(root, family=font_family, size=font_size + 2)
 style.configure('FileSearch.Treeview', rowheight=30, background=THEME_COLORS['surface'],
                 fieldbackground=THEME_COLORS['surface'], foreground=THEME_COLORS['text'],
                 font=(font_family, font_size + 1), borderwidth=0)
-# 検索ヒット数の青系背景と混同しないよう、選択行はアンバー＋濃色文字。
-# ttkのselected状態を用いるため、選択解除後は各行のヒット数色へ戻る。
-SELECTED_ROW_BG = '#FFD38A'
-SELECTED_ROW_FG = '#172B42'
-style.map('FileSearch.Treeview', background=[('selected', SELECTED_ROW_BG)],
-          foreground=[('selected', SELECTED_ROW_FG)])
+# selected の標準背景上書きは、各行の一致度を隠してしまう。
+# 選択行の色は行タグと同じ色へ動的に設定し、輪郭だけ別途描画する。
+RESULT_CURSOR_BORDER = '#915100'  # 青系の背景で見分けやすい濃いアンバー
+RESULT_CURSOR_WIDTH = 2
+style.map('FileSearch.Treeview',
+          background=[('selected', THEME_COLORS['surface'])],
+          foreground=[('selected', HIT_FOREGROUND)])
 style.configure('FileSearch.Treeview.Heading',
                 background=THEME_COLORS['surface_alt'],
                 foreground=THEME_COLORS['text'],
@@ -626,7 +680,7 @@ ttk.Label(list_card, text='検索結果', style='Section.TLabel').grid(
 # 文字ごとに一致判定。SF1/SF2はそれぞれ検索フォルダ1/2を表す。
 ttk.Label(
     list_card,
-    text='SF1＝検索フォルダ1  /  SF2＝検索フォルダ2  /  青が濃いほどヒット数が多い  /  選択中はオレンジ',
+    text='SF1＝検索フォルダ1  /  SF2＝検索フォルダ2  /  青が濃いほどヒット数が多い  /  選択中は枠線',
     style='FileSearchMuted.TLabel'
 ).grid(row=1, column=0, sticky='w', pady=(0, 7))
 # 標準ヘッダーで見出しと各列を正確に揃える（列幅の変更にも追従）。
@@ -640,13 +694,27 @@ tree.column('Folder', anchor='center', width=165, minwidth=150, stretch=False)
 tree.heading('Name', text='ファイル名', anchor='w')
 tree.heading('Hits', text='検索ヒット数', anchor='center')
 tree.heading('Folder', text='検索フォルダNo.', anchor='center')
+# 選択枠は上下左右に細いFrameを重ねる。内部は透過し、行背景を覆わない。
+# 親をTreeviewにすることでスクロールバー・画面サイズ変更の影響も処理できる。
+result_cursor_edges = [
+    tk.Frame(tree, bg=RESULT_CURSOR_BORDER, bd=0, highlightthickness=0,
+             takefocus=0) for _ in range(4)
+]
 tree.bind('<Return>', select_record)
 tree.bind('<Tab>', funcResultTab)
 tree.bind('<Shift-Tab>', funcResultTab)
-tree.bind('<FocusOut>', hide_result_cursor)  # マウス操作でフォーカスが外れた場合も非表示
+tree.bind('<FocusOut>', hide_result_cursor)
+tree.bind('<FocusIn>', schedule_result_cursor)
+tree.bind('<<TreeviewSelect>>', schedule_result_cursor)
+tree.bind('<Configure>', schedule_result_cursor)
 scr_bar = ttk.Scrollbar(list_card, orient='vertical', command=tree.yview)
 scr_bar.grid(row=2, column=1, sticky='ns')
-tree.configure(yscrollcommand=scr_bar.set)
+
+def on_result_scroll(first, last):
+    scr_bar.set(first, last)
+    schedule_result_cursor()
+
+tree.configure(yscrollcommand=on_result_scroll)
 
 # 連番のON/OFFと次の番号もメイン画面で変更・保存できる。
 bottom = ttk.Frame(outer, padding=12, style='Card.TFrame')
