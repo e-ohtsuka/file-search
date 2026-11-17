@@ -53,9 +53,11 @@ class UITests(unittest.TestCase):
         self.assertEqual(tree.heading('Folder')['text'], '検索フォルダNo.')
         style = self.ns['style']
         self.assertEqual(style.lookup('FileSearch.Treeview', 'background', ('selected',)),
-                         '#FFD38A')
+                         '#FFFFFF')
         self.assertEqual(style.lookup('FileSearch.Treeview', 'foreground', ('selected',)),
                          '#172B42')
+        self.assertEqual(self.ns['RESULT_CURSOR_BORDER'], '#915100')
+        self.assertEqual(len(self.ns['result_cursor_edges']), 4)
 
     def test_copy_from_second_folder_after_column_reorder(self):
         source2 = self.path / 'source2'
@@ -106,11 +108,19 @@ class UITests(unittest.TestCase):
         self.root.update()
         self.assertEqual(self.root.focus_get(), self.ns['tree'])
         self.assertTrue(self.ns['tree'].selection())
+        self.assertTrue(all(edge.winfo_manager() == 'place'
+                            for edge in self.ns['result_cursor_edges']))
+        self.assertEqual(
+            self.ns['style'].lookup('FileSearch.Treeview', 'background', ('selected',)),
+            '#68ABE0'
+        )
         self.ns['tree'].event_generate('<Tab>', when='tail')
         self.root.update()
         self.assertEqual(self.root.focus_get(), entry)
         self.assertEqual(entry.selection_range(0, tk.END), None)
         self.assertFalse(self.ns['tree'].selection())
+        self.assertTrue(all(not edge.winfo_manager()
+                            for edge in self.ns['result_cursor_edges']))
         # 同じTab操作で検索結果へ戻れば選択行を表示できる。
         entry.event_generate('<Tab>', when='tail')
         self.root.update()
@@ -130,6 +140,8 @@ class UITests(unittest.TestCase):
         self.root.update()
         self.assertEqual(self.root.focus_get(), self.ns['entry2'])
         self.assertFalse(tree.selection())
+        self.assertTrue(all(not edge.winfo_manager()
+                            for edge in self.ns['result_cursor_edges']))
 
     def test_next_number_copy_and_persist(self):
         self.setup_folder()
