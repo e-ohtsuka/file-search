@@ -188,7 +188,7 @@ def FileListSetTree():
 
     # レコードの追加
     for i in range(len(name_list)):
-        tree.insert(parent='', index='end', iid=i ,values=(name_list[i],"SF" + str(name_list_num[i]+1),i))
+        tree.insert(parent='', index='end', iid=i ,values=(name_list[i], '', "SF" + str(name_list_num[i]+1)))
 
 # Treeviewの内容を更新
 def setListTree():
@@ -199,6 +199,21 @@ def setListTree():
 def setInfomation(setstr):
     infoTxt = setstr
     infomationTxt.set(infoTxt)
+
+# 検索結果の色分け（ヒット数が多いほど背景が濃い）。
+# 最高ランクも黒系の文字が読みやすい明るさに抑える。
+HIT_COLORS = ('#E7F2FD', '#B6DAF8', '#81BCEA', '#68ABE0')
+HIT_FOREGROUND = '#172B42'
+
+
+def search_hit_color(hit_count, max_hit):
+    """検索結果のヒット数を4段階の背景色に変換する。"""
+    if hit_count <= 0 or max_hit <= 0:
+        return THEME_COLORS['surface']
+    level = min(len(HIT_COLORS) - 1,
+                (hit_count * len(HIT_COLORS) - 1) // max_hit)
+    return HIT_COLORS[level]
+
 
 def funcWordSet(event):
     global name_list
@@ -245,16 +260,11 @@ def funcWordSet(event):
 
         for i in range(len(name_list)):
             if name_list_hit[i] == cntlp:
-                tree.insert(parent='', index='end', iid=cnt ,values=(name_list[i],"SF"+str(name_list_num[i]+1),name_list_hit[i]), tags=str(cnt))
+                tree.insert(parent='', index='end', iid=cnt ,values=(name_list[i],name_list_hit[i],"SF"+str(name_list_num[i]+1)), tags=str(cnt))
 
-                # 一致度による表示順は従来どおり。背景だけUrbanの淡いブルーに統一。
-                strength = name_list_hit[i] / cnt_max
-                base = (255, 255, 255)
-                target = (212, 229, 255)
-                blend = 0.35 + 0.65 * strength
-                rgb = tuple(round(a + (b - a) * blend) for a, b in zip(base, target))
-                col = '#%02X%02X%02X' % rgb
-                tree.tag_configure(str(cnt), background=col)
+                # 並び順はそのまま、背景色を4段階で明確に区別。
+                col = search_hit_color(name_list_hit[i], cnt_max)
+                tree.tag_configure(str(cnt), background=col, foreground=HIT_FOREGROUND)
 
                 cur_id = 0
                 cnt += 1
@@ -270,8 +280,70 @@ def funcWordSetTab(event):
         tree.focus_set()                 # Tab後の↑↓/Enterを一覧で受け付ける
         return 'break'                  # 標準のTab移動で上書きされないようにする
 
+# 標準Treeviewはselected行を単色で塗るため、行タグの色に合わせて
+# 選択色を更新する。選択中の表示は細い枠だけを重ねて描く。
+def update_result_cursor():
+    selected = tree.selection()
+    if not selected or root.focus_get() != tree or not tree.exists(selected[0]):
+        for edge in result_cursor_edges:
+            edge.place_forget()
+        return
+
+    item_id = selected[0]
+    tags = tree.item(item_id, 'tags')
+    row_background = (tree.tag_configure(tags[0], 'background')
+                      if tags else THEME_COLORS['surface'])
+    row_background = row_background or THEME_COLORS['surface']
+
+    # 選択色をタグ背景と一致させれば、選択してもヒット数の色が残る。
+    if style.lookup('FileSearch.Treeview', 'background', ('selected',)) != row_background:
+        style.map('FileSearch.Treeview', background=[('selected', row_background)])
+
+    bounds = tree.bbox(item_id)
+    if not bounds:
+        for edge in result_cursor_edges:
+            edge.place_forget()
+        return
+
+    x, y, w, h = bounds
+    x1 = max(1, x)
+    y1 = max(1, y)
+    x2 = min(tree.winfo_width() - 1, x + w)
+    y2 = min(tree.winfo_height() - 1, y + h)
+    if x2 - x1 < 2 * RESULT_CURSOR_WIDTH or y2 - y1 < 2 * RESULT_CURSOR_WIDTH:
+        for edge in result_cursor_edges:
+            edge.place_forget()
+        return
+
+    t = RESULT_CURSOR_WIDTH
+    edges = (
+        (x1, y1, x2 - x1, t),             # 上
+        (x1, y2 - t, x2 - x1, t),         # 下
+        (x1, y1, t, y2 - y1),             # 左
+        (x2 - t, y1, t, y2 - y1),         # 右
+    )
+    for edge, (px, py, pw, ph) in zip(result_cursor_edges, edges):
+        edge.place(x=px, y=py, width=pw, height=ph)
+        edge.lift()
+
+
+def schedule_result_cursor(event=None):
+    # マウス選択・↑↓・スクロール・サイズ変更後に描画位置を合わせる。
+    tree.after_idle(update_result_cursor)
+
+
+# 検索結果からフォーカスが外れたら選択枠を消す（行の焦点は保持）。
+def hide_result_cursor(event=None):
+    for edge in result_cursor_edges:
+        edge.place_forget()
+    selected = tree.selection()
+    if selected:
+        tree.selection_remove(*selected)
+
+
 # 検索結果からTabで検索欄へ戻り、すぐ次の検索文字を入力できる。
 def funcResultTab(event):
+    hide_result_cursor()  # FocusOutイベントが起きる前にも確実に選択表示を解除
     entry1.focus_set()
     entry1.selection_range(0, tk.END)
     return 'break'
@@ -286,13 +358,13 @@ def select_record(event):
         setInfomation('コピーするファイルを選択してください。')
         return 'break'
     values = tree.item(record_id, 'values')
-    if len(values) < 2:
+    if len(values) < 3:
         return 'break'
     if not saveFolder or not os.path.isdir(saveFolder):
         setInfomation('コピー先フォルダを指定してください。')
         return 'break'
 
-    sf_num = sfn0 if values[1] == 'SF1' else sfn1
+    sf_num = sfn0 if values[2] == 'SF1' else sfn1
     source_file = Path(searchFolder[sf_num]) / values[0]
     numbering = bool(nmb_var.get())
     target_name = (f'{cntNum:03d}_' if numbering else '') + values[0]
@@ -489,15 +561,24 @@ font = tk.font.Font(root, family=font_family, size=font_size)
 font_bold = tk.font.Font(root, family=font_family, size=font_size, weight='bold')
 font_search_word = tk.font.Font(root, family=font_family, size=font_size + 2)
 
-# Treeview は従来どおりファイル名／検索元を表示するが、見出しは非表示。
-# 標準ttkの列構成を使い、従来の検索関数から渡されるvaluesの形式を維持する。
+# Treeviewはファイル名・ヒット数・検索フォルダNo.を見出し付きで表示する。
+# 列を入れ替えたため、コピー元フォルダの判定にも3列目を使う。
 style.configure('FileSearch.Treeview', rowheight=30, background=THEME_COLORS['surface'],
                 fieldbackground=THEME_COLORS['surface'], foreground=THEME_COLORS['text'],
                 font=(font_family, font_size + 1), borderwidth=0)
-# 一致度の淡い青（行タグ）と明確に区別するため、選択行は濃い青＋白文字。
-# Treeviewの selected 状態に設定するので、検索結果の色分けはそのまま残る。
-style.map('FileSearch.Treeview', background=[('selected', THEME_COLORS['accent'])],
-          foreground=[('selected', THEME_COLORS['accent_text'])])
+# selected の標準背景上書きは、各行の一致度を隠してしまう。
+# 選択行の色は行タグと同じ色へ動的に設定し、輪郭だけ別途描画する。
+RESULT_CURSOR_BORDER = '#915100'  # 青系の背景で見分けやすい濃いアンバー
+RESULT_CURSOR_WIDTH = 2
+style.map('FileSearch.Treeview',
+          background=[('selected', THEME_COLORS['surface'])],
+          foreground=[('selected', HIT_FOREGROUND)])
+style.configure('FileSearch.Treeview.Heading',
+                background=THEME_COLORS['surface_alt'],
+                foreground=THEME_COLORS['text'],
+                font=(font_family, font_size, 'bold'),
+                padding=(7, 7))
+style.map('FileSearch.Treeview.Heading', background=[('active', THEME_COLORS['selection'])])
 style.configure('FileSearch.TFrame', background=THEME_COLORS['surface'])
 style.configure('FileSearch.TLabel', background=THEME_COLORS['surface'],
                 foreground=THEME_COLORS['text'], font=(font_family,font_size))
@@ -593,28 +674,47 @@ ttk.Label(search_card, text='Enter: 検索  /  Tab: 検索結果へ  /  結果�
 list_card = ttk.Frame(outer, padding=12, style='Card.TFrame')
 list_card.grid(row=3, column=0, sticky='nsew', pady=(0, 12))
 list_card.columnconfigure(0, weight=1)
-list_card.rowconfigure(1, weight=1)
+list_card.rowconfigure(2, weight=1)
 ttk.Label(list_card, text='検索結果', style='Section.TLabel').grid(
-    row=0, column=0, sticky='w', pady=(0, 8))
-# Treeviewはshow='headings'で列を表示し、空のheading layoutで見出しだけ隠す。
-# 従来のTreeview.values・選択イベント・コピー対象の判定は不変。
-style.layout('Treeview.Heading', [])
-column = ('Name', 'Date', 'MP')
+    row=0, column=0, sticky='w', pady=(0, 5))
+# 文字ごとに一致判定。SF1/SF2はそれぞれ検索フォルダ1/2を表す。
+ttk.Label(
+    list_card,
+    text='SF1＝検索フォルダ1  /  SF2＝検索フォルダ2  /  青が濃いほどヒット数が多い  /  選択中は枠線',
+    style='FileSearchMuted.TLabel'
+).grid(row=1, column=0, sticky='w', pady=(0, 7))
+# 標準ヘッダーで見出しと各列を正確に揃える（列幅の変更にも追従）。
+column = ('Name', 'Hits', 'Folder')
 tree = ttk.Treeview(list_card, columns=column, selectmode='browse',
                     show='headings', style='FileSearch.Treeview')
-tree.grid(row=1, column=0, sticky='nsew')
-tree.column('Name', anchor='w', width=570, stretch=True)
-tree.column('Date', anchor='center', width=70, stretch=False)
-tree.column('MP', anchor='center', width=65, stretch=False)
-tree.heading('Name', text='')
-tree.heading('Date', text='')
-tree.heading('MP', text='')
+tree.grid(row=2, column=0, sticky='nsew')
+tree.column('Name', anchor='w', width=450, stretch=True)
+tree.column('Hits', anchor='center', width=130, minwidth=110, stretch=False)
+tree.column('Folder', anchor='center', width=165, minwidth=150, stretch=False)
+tree.heading('Name', text='ファイル名', anchor='w')
+tree.heading('Hits', text='検索ヒット数', anchor='center')
+tree.heading('Folder', text='検索フォルダNo.', anchor='center')
+# 選択枠は上下左右に細いFrameを重ねる。内部は透過し、行背景を覆わない。
+# 親をTreeviewにすることでスクロールバー・画面サイズ変更の影響も処理できる。
+result_cursor_edges = [
+    tk.Frame(tree, bg=RESULT_CURSOR_BORDER, bd=0, highlightthickness=0,
+             takefocus=0) for _ in range(4)
+]
 tree.bind('<Return>', select_record)
 tree.bind('<Tab>', funcResultTab)
 tree.bind('<Shift-Tab>', funcResultTab)
+tree.bind('<FocusOut>', hide_result_cursor)
+tree.bind('<FocusIn>', schedule_result_cursor)
+tree.bind('<<TreeviewSelect>>', schedule_result_cursor)
+tree.bind('<Configure>', schedule_result_cursor)
 scr_bar = ttk.Scrollbar(list_card, orient='vertical', command=tree.yview)
-scr_bar.grid(row=1, column=1, sticky='ns')
-tree.configure(yscrollcommand=scr_bar.set)
+scr_bar.grid(row=2, column=1, sticky='ns')
+
+def on_result_scroll(first, last):
+    scr_bar.set(first, last)
+    schedule_result_cursor()
+
+tree.configure(yscrollcommand=on_result_scroll)
 
 # 連番のON/OFFと次の番号もメイン画面で変更・保存できる。
 bottom = ttk.Frame(outer, padding=12, style='Card.TFrame')
