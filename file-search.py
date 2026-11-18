@@ -42,6 +42,12 @@ name_list_num = []
 cur_id = 0
 list_generation = 0
 copy_busy = False
+pending_search_after = None
+search_update_pending = False
+pending_result_focus = False
+number_scan_token = 0
+number_scan_active = False
+number_scan_error = None
 
 
 def run_background(work, done):
@@ -64,6 +70,66 @@ def run_background(work, done):
 
     threading.Thread(target=worker, daemon=True).start()
     root.after(15, poll)
+
+
+
+def scan_next_copy_number(folder: str) -> int:
+    """コピー先にある連番付き通常ファイルの最大番号+1を返す。なければ1。"""
+    if not folder:
+        raise ValueError('コピー先フォルダを指定してください。')
+    highest = 0
+    with os.scandir(folder) as entries:
+        for entry in entries:
+            if not entry.is_file(follow_symlinks=False):
+                continue
+            prefix, separator, rest = entry.name.partition('_')
+            if (separator and rest and 3 <= len(prefix) <= 12
+                    and prefix.isascii() and prefix.isdecimal()):
+                highest = max(highest, int(prefix))
+    if highest >= 999_999_999_999:
+        raise ValueError('連番が12桁の上限に達しています。')
+    return highest + 1
+
+
+def cancel_next_number_scan(event=None):
+    """古い非同期調査結果を無効化し、手動入力を優先する。"""
+    global number_scan_token, number_scan_active, number_scan_error
+    number_scan_token += 1
+    number_scan_active = False
+    number_scan_error = None
+
+
+def refresh_next_number():
+    """連番ON時にコピー先を非同期で調査し、既存の『次の番号』欄を更新する。"""
+    global number_scan_token, number_scan_active, number_scan_error
+    if not nmb_var.get():
+        return
+    number_scan_token += 1
+    token = number_scan_token
+    folder = saveFolder
+    number_scan_active = True
+    number_scan_error = None
+
+    def finished(next_number, error):
+        global cntNum, number_scan_active, number_scan_error
+        # OFF切替、手動変更、コピー先変更後の古い結果は使わない。
+        if (token != number_scan_token or not nmb_var.get()
+                or folder != saveFolder):
+            return
+        if copy_busy:
+            root.after(50, lambda: finished(next_number, error))
+            return
+        number_scan_active = False
+        if error:
+            number_scan_error = str(error)
+            setInfomation(f'連番確認失敗: {error}')
+            return
+        cntNum = next_number
+        numberTxt.set(intToStr03(cntNum))
+        if persist_current_settings():
+            setInfomation(f'連番: 次は{intToStr03(cntNum)}')
+
+    run_background(lambda: scan_next_copy_number(folder), finished)
 
 
 def close_app():
@@ -176,6 +242,8 @@ def choose_copy_folder():
         return False
     destination_var.set(choice)
     setInfomation('コピー先フォルダを変更しました。')
+    if nmb_var.get():
+        refresh_next_number()
     return True
 
 # 有効な検索フォルダからファイル一覧を取得
@@ -212,6 +280,9 @@ def setListTree(search_txt=''):
         if generation != list_generation:
             return
         if error:
+            global search_update_pending, pending_result_focus
+            search_update_pending = False
+            pending_result_focus = False
             setInfomation(f'一覧取得失敗: {error}')
             return
         rows, errors = result
@@ -245,6 +316,12 @@ def setListTree(search_txt=''):
             else:
                 cur_id = 0 if rows else None
                 schedule_result_cursor()
+                global search_update_pending, pending_result_focus
+                search_update_pending = False
+                if pending_result_focus:
+                    pending_result_focus = False
+                    if cur_id is not None and root.focus_get() == entry1:
+                        root.after_idle(lambda: funcWordSetTab(None))
         render()
 
     run_background(lambda: collect_files(folders, enabled, search_txt), ready)
@@ -273,8 +350,38 @@ def funcWordSet(event):
     search_txt = entry1.get().replace(' ', '').replace('　', '')
     setListTree(search_txt)
 
+def run_live_search():
+    """最後に入力が変わってから220ms後、バックグラウンド検索を開始する。"""
+    global pending_search_after
+    pending_search_after = None
+    search_txt = entry1.get().replace(' ', '').replace('　', '')
+    setListTree(search_txt)
+
+
+def on_search_text_change(*_):
+    """貼り付け・日本語入力・削除を含む文字列変更を検出する。"""
+    global pending_search_after, list_generation, cur_id
+    global search_update_pending, pending_result_focus
+    # 入力が変わった時点で以前の検索結果の反映を停止する。
+    list_generation += 1
+    cur_id = None
+    search_update_pending = True
+    pending_result_focus = False
+    if pending_search_after is not None:
+        root.after_cancel(pending_search_after)
+    pending_search_after = root.after(220, run_live_search)
+
+
 # Tabで検索結果の先頭行を選択し、キーボード操作先も一覧へ移動する。
 def funcWordSetTab(event):
+    global pending_result_focus, pending_search_after
+    if search_update_pending:
+        pending_result_focus = True
+        if pending_search_after is not None:
+            root.after_cancel(pending_search_after)
+            run_live_search()
+        return 'break'
+
     if cur_id is not None and tree.exists(cur_id):
         tree.focus(cur_id)               # Enterキーでコピーする対象行
         tree.selection_set(cur_id)       # 選択行の背景・文字色を反映
@@ -366,6 +473,12 @@ def select_record(event):
     sf_num = sfn0 if values[2] == 'SF1' else sfn1
     source_file = Path(searchFolder[sf_num]) / values[0]
     numbering = bool(nmb_var.get())
+    if numbering and number_scan_active:
+        setInfomation('連番を確認中です。完了後にコピーしてください。')
+        return 'break'
+    if numbering and number_scan_error:
+        setInfomation('コピー先の連番を確認できません。コピー先を確認してください。')
+        return 'break'
     number = cntNum
     target_name = (f'{number:03d}_' if numbering else '') + values[0]
     destination = saveFolder
@@ -436,6 +549,8 @@ def funcNumberGet(event=None):
         return 'break'
     old_number = cntNum
     cntNum = int(value)
+    if cntNum != old_number:
+        cancel_next_number_scan()
     if not persist_current_settings():
         cntNum = old_number
     numberTxt.set(intToStr03(cntNum))
@@ -450,6 +565,10 @@ def nmb_toggle():
                              else 'ToggleOff.TCheckbutton'))
     if settings_ready:
         persist_current_settings()
+        if nmb_var.get():
+            refresh_next_number()
+        else:
+            cancel_next_number_scan()
 
 # 設定ファイルを読み込む
 def getCfgFile():
@@ -692,11 +811,12 @@ ttk.Label(search_card, text='ファイルを検索', style='Section.TLabel').gri
     row=0, column=0, columnspan=2, sticky='w', pady=(0, 8))
 ttk.Label(search_card, text='検索文字', style='FileSearch.TLabel').grid(
     row=1, column=0, sticky='w', padx=(0, 12))
-entry1 = ttk.Entry(search_card, font=font_search_word)
+entry1_var = tk.StringVar()
+entry1 = ttk.Entry(search_card, textvariable=entry1_var, font=font_search_word)
 entry1.grid(row=1, column=1, sticky='ew')
-entry1.bind('<Return>', funcWordSet)
+entry1.bind('<Return>', funcWordSetTab)
 entry1.bind('<Tab>', funcWordSetTab)
-ttk.Label(search_card, text='Enter: 検索  /  Tab: 検索結果へ  /  結果上でTab: 検索欄へ  /  Enter: コピー',
+ttk.Label(search_card, text='入力で自動検索  /  Enter・Tab: 結果へ  /  結果上でTab: 検索欄へ  /  Enter: コピー',
           style='FileSearchMuted.TLabel').grid(row=2, column=0, columnspan=2,
                                                 sticky='w', pady=(8, 0))
 
@@ -761,6 +881,7 @@ entry2 = ttk.Entry(bottom, textvariable=numberTxt, font=font, width=9)
 entry2.grid(row=0, column=3, sticky='w')
 entry2.bind('<Return>', funcNumberGet)
 entry2.bind('<FocusOut>', funcNumberGet)
+entry2.bind('<KeyRelease>', cancel_next_number_scan)
 infomationTxt = tk.StringVar(value=infoTxt)
 infomationLbl = ttk.Label(bottom, textvariable=infomationTxt, style='FileSearchMuted.TLabel')
 infomationLbl.grid(row=0, column=4, sticky='e', padx=(20,0))
@@ -770,5 +891,8 @@ sfs2_toggle()
 nmb_toggle()
 setListTree()
 settings_ready = True
+entry1_var.trace_add('write', on_search_text_change)
 entry1.focus_set()
+if nmb_var.get():
+    refresh_next_number()
 root.mainloop()

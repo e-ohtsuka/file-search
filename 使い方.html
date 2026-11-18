@@ -14,26 +14,27 @@ section{padding:23px 27px;margin-bottom:18px;background:var(--surface);border:1p
 .table-wrap{width:100%;overflow:auto}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}th{background:var(--alt);font-weight:700}tbody tr:nth-child(even){background:#f8fbff}
 pre{margin:12px 0;background:#172941;color:#f4f8ff;padding:15px;border-radius:8px;overflow:auto;font-family:Consolas,"Cascadia Code",monospace;font-size:13px;line-height:1.7}code{font-family:Consolas,"Cascadia Code",monospace;background:#edf3fa;padding:2px 5px;border-radius:4px;font-size:.93em}pre code{background:transparent;padding:0}.notice{padding:12px 14px;background:#f4f8ff;border-left:3px solid var(--accent);margin-top:14px;border-radius:4px}.warn{background:#fff9ec;border-left-color:#b88332}
 footer{max-width:1140px;margin:auto;padding:6px 22px 35px;color:var(--muted);font-size:12px}a{color:var(--accent)}.tag{font-size:12px;color:var(--muted);font-weight:600}@media(max-width:650px){.head,.layout{padding-left:13px;padding-right:13px}section{padding:17px 15px}table{font-size:12px}}
+.colorlegend{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:13px 0}.colorlegend span{padding:7px 9px;text-align:center;border:1px solid #a4bed7;border-radius:5px;font-size:12px;color:#172b42}.outline-example{border:2px solid #915100;border-radius:2px;display:inline-block;padding:1px 8px;background:#81bcea;color:#172b42;font-weight:bold}@media(max-width:650px){.colorlegend{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 </head>
 <body>
 <header><div class="head"><div class="eyebrow">FILE-SEARCH / USER GUIDE</div><h1>File-Search v1.00</h1><p class="lead">難しい氏名の漢字も、変換しやすい短い言葉を組み合わせて検索。漢字の一致数で候補を絞り、ファイルをコピーします。</p><span class="pill">Windows向け · ローカルで閲覧可能 · 追加フォント不要</span></div></header>
-<main class="layout"><nav aria-label="目次"><a href="#feature">このツールの特徴</a><a href="#overview">画面</a><a href="#start">起動と設定</a><a href="#search">検索</a><a href="#copy">コピー</a><a href="#demo">デモ</a><a href="#notes">FAQ</a></nav>
+<main class="layout"><nav aria-label="目次"><a href="#feature">このツールの特徴</a><a href="#overview">画面</a><a href="#start">起動と設定</a><a href="#search">検索</a><a href="#results">結果の見方</a><a href="#copy">コピー</a><a href="#demo">デモ</a><a href="#notes">FAQ</a></nav>
 <section id="feature"><h2>最初に試してほしい検索</h2>
 <p>探したい氏名の漢字が変換しにくいときは、<strong>短い単語を続けて入力するだけ</strong>。文章にする必要はありません。</p>
 <div class="notice"><strong>検索欄への入力：<code>吉田美しい咲く</code></strong><br>
 「吉田」で吉・田、「美しい」で美、「咲く」で咲、の<strong>4文字が一致</strong>し、<code>20251028-吉田美咲.txt</code> が候補の上位に表示されます。</div>
 <p>付属の30件のデモデータでは、この入力で次の順序になります。</p>
-<div class="table-wrap"><table><thead><tr><th>一致文字数</th><th>検索結果の例</th></tr></thead><tbody>
-<tr><td><strong>4文字</strong></td><td><strong>20251028-吉田美咲.txt</strong></td></tr>
-<tr><td>3文字</td><td>20250927-田中美咲.txt</td></tr>
-<tr><td>2文字</td><td>20250929-吉田花子.txt</td></tr>
+<div class="table-wrap"><table><thead><tr><th>検索ヒット数</th><th>検索結果の例</th></tr></thead><tbody>
+<tr><td><strong>4</strong></td><td><strong>20251028-吉田美咲.txt</strong></td></tr>
+<tr><td>3</td><td>20250927-田中美咲.txt</td></tr>
+<tr><td>2</td><td>20250929-吉田花子.txt</td></tr>
 </tbody></table></div>
-<p>入力した漢字がファイル名の<strong>離れた場所にあっても一致</strong>し、一致文字数の多い順に並びます。背景色も一致度に応じて変わります。</p>
-<div class="notice">読み仮名や言葉の意味を解析しているのではありません。入力した文字がファイル名に含まれるかを1文字ずつ数える仕組みです。</div>
+<p>入力した漢字がファイル名の<strong>離れた場所にあっても一致</strong>し、一致文字数の多い順に並びます。背景色もヒット数に応じて変わります。</p>
+<div class="notice">読み仮名や言葉の意味を解析しているのではありません。入力した文字がファイル名に含まれるかを文字単位で数える仕組みです。</div>
 </section>
 <section id="overview"><h2>画面の概要</h2>
-<figure class="figure"><img class="shot" src="docs/画面見本_Windows実機.png" alt="File-SearchのWindows実行画面：検索フォルダ、検索欄、一覧、連番設定" loading="eager"><figcaption>画面見本（Windows実機）。検索フォルダ、コピー先、検索欄、結果一覧、連番設定をメイン画面に配置しています。</figcaption></figure>
+<figure class="figure"><img class="shot" src="docs/画面見本_Windows実機.png" alt="File-SearchのWindows実行画面：検索フォルダ、検索欄、一覧、連番設定" loading="eager"><figcaption>画面見本（Windows実機・2026年11月18日）。ヒット数に応じた4段階の青色、2行目の選択枠、入力で自動検索する操作案内を確認できます。</figcaption></figure>
 <p>File-Searchは、最大2つのフォルダにあるファイルを名前から検索し、選んだファイルを指定先へコピーするためのツールです。検索対象のフォルダをON/OFFできます。</p></section>
 <section id="start"><h2>起動と初期設定</h2><ol class="steps">
 <li>同じフォルダに <code>file-search.py</code>、<code>design_theme.py</code>、<code>design_theme.json</code> を配置します。Python 3.10以上を想定しています。</li>
@@ -42,23 +43,36 @@ footer{max-width:1140px;margin:auto;padding:6px 22px 35px;color:var(--muted);fon
 <li>「コピー先フォルダ」を押して、コピー先を指定します。</li>
 </ol><div class="notice">フォルダ指定やON/OFFなどの変更は <code>file-search.cfg</code> に自動保存されます。既存設定がある場合は上書きせずバックアップしてから更新してください。</div></section>
 <section id="search"><h2>検索の方法</h2><ol class="steps">
-<li>「検索文字」欄に文字を入力します。氏名を通常どおり入力するほか、変換しやすい短い語句をつないで必要な漢字を入力できます。文章にする必要はありません。</li>
-<li><strong>Enter</strong> で検索すると、一致文字数が多いファイルが上に並びます。背景の淡い青は一致度に応じて変化します。</li>
-<li><strong>Tab</strong> で検索結果の先頭へ移動し、<strong>↑ / ↓</strong> でファイルを選びます。</li>
+<li>「検索文字」欄に文字を入力します。氏名を通常どおり入力するほか、変換しやすい短い語句をつないで必要な漢字を入力できます。</li>
+<li>文字を入力すると候補が<strong>自動検索</strong>されます（最後の入力から約0.22秒後）。検索開始のためにEnterを押す必要はありません。</li>
+<li><strong>Enter または Tab</strong> で検索結果へ移動し、<strong>↑ / ↓</strong> でファイルを選びます。</li>
 <li>検索結果上で <strong>Tab</strong> を押すと検索欄へ戻ります。入力文字が選択され、次の検索を始められます。</li>
 </ol>
-<div class="table-wrap"><table><thead><tr><th>検索欄への入力例</th><th>探したい氏名</th><th>一致文字数</th></tr></thead><tbody>
+<div class="table-wrap"><table><thead><tr><th>検索欄への入力例</th><th>探したい氏名</th><th>検索ヒット数</th></tr></thead><tbody>
 <tr><td><code>吉田美しい咲く</code></td><td>吉田美咲</td><td>4</td></tr>
 <tr><td><code>我慢妻功績</code></td><td>我妻功</td><td>3</td></tr>
 <tr><td><code>小鳥遊ぶ透ける</code></td><td>小鳥遊透</td><td>4</td></tr>
 <tr><td><code>烏龍丸太毅然</code></td><td>烏丸毅</td><td>3</td></tr>
 </tbody></table></div>
-<div class="notice">この検索は漢字の読みや日本語の意味を解析する機能ではありません。入力文字がファイル名に含まれているかを文字単位で調べ、一致文字数の多い順に並べます。</div></section>
+</section>
+<section id="results"><h2>検索結果の表示と選択カーソル</h2>
+<p>検索結果一覧の列見出しは<strong>ファイル名・検索ヒット数・検索フォルダNo.</strong>の3つです。</p>
+<div class="table-wrap"><table><thead><tr><th>表示項目</th><th>意味</th></tr></thead><tbody>
+<tr><td>ファイル名</td><td>見つかったファイルの名前です。</td></tr>
+<tr><td>検索ヒット数</td><td>検索文字とファイル名が一致した文字の数です。多いものほど上位に表示されます。</td></tr>
+<tr><td>検索フォルダNo.</td><td><code>SF1</code>は検索フォルダ1、<code>SF2</code>は検索フォルダ2を表します。</td></tr>
+</tbody></table></div>
+<p><strong>青い背景色</strong>はヒット数によって4段階で変わり、ヒット数が多い行ほど濃くなります。最高段階も文字を読みやすい明るさに調整しています。</p>
+<div class="colorlegend" aria-label="4段階の青色見本"><span style="background:#E7F2FD">薄い青</span><span style="background:#B6DAF8">やや濃い青</span><span style="background:#81BCEA">濃い青</span><span style="background:#68ABE0">最も濃い青</span></div>
+<p><strong>選択中の行</strong>は、背景色を覆わないように<span class="outline-example">濃いアンバー色の枠線</span>で示します。枠線は現在キーボード操作の対象になっている行を示すもので、ヒット数の色とは別の表示です。</p>
+<p>検索結果からTabで検索欄へ戻るなど、<strong>一覧からフォーカスが外れたときは選択枠が消えます</strong>。背景色は残るので、ヒット数の違いを確認できます。</p>
+</section>
 <section id="copy"><h2>コピー・連番付与</h2>
 <ol class="steps"><li>コピー先フォルダを選んだ状態で、検索結果から目的の行を選択します。</li>
 <li><strong>Enter</strong> を押すと、そのファイルをコピー先へコピーします。</li>
-<li>「連番付与」をONにすると、<code>001_</code> のような番号がファイル名の先頭に付きます。画面下部の「次の番号」を変更することもできます。</li>
-</ol><div class="notice warn"><strong>上書きに注意：</strong>コピー先に同名ファイルがある場合、確認ダイアログが表示されます。「いいえ」で中止できます。コピーが成功したときだけ連番が進みます。</div>
+<li>「連番付与」をONにすると、<code>001_</code> のような番号がファイル名の先頭に付きます。コピー先の最大番号に合わせて「次の番号」が自動設定されます。手動で番号を変更することもできます。</li>
+</ol><div class="notice"><strong>次の番号を自動設定：</strong>連番付与がONの場合、起動時・連番をONにしたとき・コピー先フォルダーを変更したときに、コピー先を調べます。番号付きファイルがなければ <code>001</code>、最大番号が <code>006</code> なら <code>007</code> です。番号の途中に欠番があっても、最大値の次を使用します。結果は画面下部に <code>連番: 次は007</code> のように表示されます。</div>
+<div class="notice warn"><strong>上書きに注意：</strong>コピー先に同名ファイルがある場合、確認ダイアログが表示されます。「いいえ」で中止できます。コピーが成功したときだけ連番が進みます。</div>
 <p>コピー成功後は検索欄へ戻ります。テスト時は、必ず架空データと専用のコピー先フォルダを使用してください。</p></section>
 <section id="demo"><h2>付属デモデータで試す</h2>
 <p>配布物には2025年9月・10月の架空の氏名ファイルを各15件、合計30件収録しています。</p>
@@ -70,12 +84,15 @@ footer{max-width:1140px;margin:auto;padding:6px 22px 35px;color:var(--muted);fon
 <p>それぞれの月フォルダを「検索フォルダ 1」「検索フォルダ 2」に設定してください。<code>検索例一覧.csv</code> には、短い単語を使った検索例と一致数・色分け確認用の例があります。</p>
 </section><section id="notes"><h2>よくある確認事項</h2><div class="table-wrap"><table><thead><tr><th>状態</th><th>確認すること</th></tr></thead><tbody>
 <tr><td>検索しても出ない</td><td>検索フォルダの指定先とON/OFF、ファイルの存在を確認します。</td></tr>
-<tr><td>Tabで選択できない</td><td>先に検索欄でEnterを押して結果を表示し、Tabで移動してください。</td></tr>
+<tr><td>Enterを押していないのに検索される</td><td>仕様どおりです。検索文字の入力後、約0.22秒で自動的に候補が更新されます。</td></tr>
+<tr><td>Tabで選択できない</td><td>検索結果が表示されたことを確認してから、検索欄でEnterまたはTabを押してください。</td></tr>
+<tr><td>検索結果の枠線が消えた</td><td>検索欄などにフォーカスが移動すると枠線は非表示になります。検索結果へフォーカスを戻すと選択表示されます。</td></tr>
 <tr><td>コピーされない</td><td>コピー先フォルダ、対象ファイル、書込権限、上書き確認ダイアログを確認します。</td></tr>
+<tr><td>連番が自動変更された</td><td>連番付与がONなら、起動時・連番をONにした時・コピー先変更時に番号を自動確認します。手動で次の番号を指定することもできます。</td></tr>
 <tr><td>設定が変わった</td><td><code>file-search.cfg</code> は自動保存されます。既存設定はバックアップしてください。</td></tr>
 </tbody></table></div>
 <p class="tag">本ツールは実用プログラムのテーマ適用例です。デザインはGUI Design Studioで作成したUrbanテーマを使用しています。</p>
 </section>
 </main>
-<footer>使い方ガイド | 説明更新日：2026/11/17 | 画面見本はWindows実機で撮影した参考画像です。</footer>
+<footer>使い方ガイド | 説明更新日：2026/11/18 | 画面見本はWindows実機で撮影した参考画像です。</footer>
 </body></html>
